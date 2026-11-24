@@ -1,0 +1,25 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تواصل معنا</title><link rel="stylesheet" href="style.css"></head><body><div class="wrap">
+<h1>تواصل معنا</h1>
+<p class="mut">املأ بيانات بسيطة ثم اختر طريقة التواصل.</p>
+<div class="card" id="box">
+<label for="nm">الاسم</label><input id="nm" maxlength="40" autocomplete="name">
+<label for="rs">سبب التواصل</label><textarea id="rs" rows="3" maxlength="300"></textarea>
+<a class="btn" id="wa" href="#" target="_blank" rel="noopener">فتح واتساب</a>
+<a class="btn sec" id="tel" href="#">اتصال هاتفي</a>
+<a class="btn sec" id="web" href="#" hidden>مكالمة من المتصفح (بدون رصيد)</a>
+</div>
+<script src="common.js"></script>
+<script>
+const p=normPhone(qs.get('p')),src=cleanSrc(qs.get('s')),ns=qs.get('ns'),room=(qs.get('r')||'').replace(/[^a-z0-9]/gi,'');
+if(!p){$('#box').innerHTML='<div class="status err">الرابط ده ناقص رقم المالك. أنشئه من صفحة الرابط الذكي.</div>';}
+else{
+  const msg=()=>{const n=$('#nm').value.trim(),r=$('#rs').value.trim();return 'مرحباً'+(n?'، أنا '+n:'')+(r?'\nالموضوع: '+r:'')+'\n(المصدر: '+src+')'};
+  const upd=()=>{$('#wa').href='https://wa.me/'+p+'?text='+encodeURIComponent(msg())};
+  upd();$('#nm').oninput=upd;$('#rs').oninput=upd;
+  $('#tel').href='tel:+'+p;
+  $('#wa').onclick=()=>{countHit(ns,src,'wa')};
+  $('#tel').onclick=()=>{countHit(ns,src,'tel')};
+  if(room){const w=$('#web');w.hidden=false;w.href='call.html?r='+room+'&s='+src+(ns?'&ns='+ns:'');}
+  countHit(ns,src,'view');
+}
+</script></div></body></html>
