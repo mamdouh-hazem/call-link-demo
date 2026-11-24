@@ -1,0 +1,38 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>اتصل الآن</title><link rel="stylesheet" href="style.css"></head><body><div class="wrap">
+<h1>اتصل الآن من المتصفح</h1>
+<p class="mut">مكالمة صوتية مجانية بدون تطبيق. هيطلب إذن الميكروفون.</p>
+<div class="card" id="form">
+<label for="nm">اسمك (اختياري)</label><input id="nm" maxlength="40" autocomplete="name">
+<div class="status" id="st">اضغط «اتصل» للبدء</div>
+<div class="timer" id="timer" hidden>00:00</div>
+<button class="btn" id="go" type="button">اتصل</button>
+<button class="btn bad" id="hang" type="button" hidden>إنهاء المكالمة</button>
+</div>
+<audio id="remote" autoplay playsinline></audio>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script><script src="common.js"></script>
+<script>
+const room=(qs.get('r')||'').replace(/[^a-z0-9]/gi,'');
+const src=qs.get('s'),ns=qs.get('ns');
+let peer,call,stream,tmr,to;
+function st(t,c){const e=$('#st');e.textContent=t;e.className='status '+(c||'')}
+function done(msg,c){clearTimeout(to);clearInterval(tmr);try{call&&call.close()}catch(e){}try{peer&&peer.destroy()}catch(e){}if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;call=null;st(msg,c);$('#go').hidden=false;$('#go').disabled=false;$('#hang').hidden=true;$('#timer').hidden=true}
+if(!room){st('رابط غير صالح: ناقص رمز الغرفة','err');$('#go').disabled=true}
+$('#go').onclick=async()=>{
+  $('#go').disabled=true;st('جاري طلب الميكروفون...');
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
+  catch(e){st('محتاجين إذن الميكروفون عشان نكلمك. فعّله من إعدادات المتصفح.','err');$('#go').disabled=false;return}
+  st('جاري الاتصال...');$('#go').hidden=true;$('#hang').hidden=false;
+  peer=new Peer({config:ICE});
+  peer.on('error',e=>{done(e.type==='peer-unavailable'?'المالك مش متصل حالياً. جرب بعد شوية.':'تعذر الاتصال: '+e.type,'err')});
+  peer.on('open',()=>{
+    call=peer.call('clnk-'+room,stream,{metadata:{name:$('#nm').value.trim()}});
+    countHit(ns,src,'call');
+    to=setTimeout(()=>{if(!connected)done('المالك لم يرد. جرب بعد شوية.','err')},45000);
+    let connected=false;
+    call.on('stream',s=>{connected=true;clearTimeout(to);$('#remote').srcObject=s;$('#remote').play().catch(()=>{});st('المكالمة شغالة','ok');$('#timer').hidden=false;const t0=Date.now();tmr=setInterval(()=>{const x=Math.floor((Date.now()-t0)/1000);$('#timer').textContent=String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0')},500)});
+    call.on('close',()=>done('انتهت المكالمة'));
+    call.on('error',()=>done('حصل خطأ في المكالمة','err'));
+  });
+};
+$('#hang').onclick=()=>done('تم إنهاء المكالمة');
+</script></div></body></html>
