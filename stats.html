@@ -1,0 +1,18 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>الإحصائيات</title><link rel="stylesheet" href="style.css"></head><body><div class="wrap">
+<div id="nav"></div>
+<h1>عدّاد الضغطات حسب المصدر</h1>
+<div class="card"><table><thead><tr><th>المصدر</th><th>فتح الرابط</th><th>واتساب</th><th>اتصال</th><th>من المتصفح</th></tr></thead><tbody id="tb"></tbody></table></div>
+<button class="btn sec" id="rf" type="button">تحديث</button>
+<p class="mut">العدّاد بيعدّ ضغطات الأزرار على الصفحة، مش المحادثات أو المكالمات اللي اكتملت فعلاً. الخدمة مجانية وخارجية، فالأرقام تقريبية.</p>
+<script src="common.js"></script>
+<script>
+$('#nav').innerHTML=NAV;
+const ns=qs.get('ns'),srcs=(qs.get('src')||'').split(',').map(cleanSrc).filter(Boolean);
+async function load(){
+  if(!ns){$('#tb').innerHTML='<tr><td colspan=5>رابط ناقص</td></tr>';return}
+  let h='';
+  const rows=await Promise.all(srcs.map(s=>Promise.all(['view','wa','tel','call'].map(k=>getCount(ns,s,k)))));srcs.forEach((s,i)=>{const v=rows[i];h+=`<tr><td>${s}</td>${v.map(x=>`<td>${x===null?'؟':x}</td>`).join('')}</tr>`});
+  $('#tb').innerHTML=h;
+}
+$('#rf').onclick=load;load();
+</script></div></body></html>
