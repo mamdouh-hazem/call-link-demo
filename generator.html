@@ -1,0 +1,33 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>الرابط الذكي</title><link rel="stylesheet" href="style.css"></head><body><div class="wrap">
+<div id="nav"></div>
+<h1>أنشئ رابطك الذكي</h1>
+<div class="card">
+<label for="ph">رقم المالك (بصيغة دولية أو 01xxxxxxxxx)</label><input id="ph" dir="ltr" inputmode="tel" placeholder="أدخل رقمك هنا">
+<label for="sr">المصادر (مفصولة بفاصلة، حروف إنجليزية)</label><input id="sr" dir="ltr" value="facebook,website,qr,card">
+<label for="rm">رمز غرفة المكالمة من المتصفح (اختياري، من صفحة المالك)</label><input id="rm" dir="ltr" placeholder="مثال: abcd2345">
+<button class="btn" id="gen" type="button">إنشاء الروابط</button>
+<div id="err"></div></div>
+<div id="out"></div>
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script><script src="common.js"></script>
+<script>
+$('#nav').innerHTML=NAV;
+try{const r=localStorage.getItem('room');if(r)$('#rm').value=r}catch(e){}
+$('#gen').onclick=()=>{
+  const p=normPhone($('#ph').value);
+  if(!p){$('#err').innerHTML='<div class="status err">الرقم غير صالح. اكتبه بصيغة دولية مثل 20109xxxxxxx.</div>';return}
+  $('#err').innerHTML='';
+  let ns;try{ns=localStorage.getItem('ns')}catch(e){}if(!ns){ns=rand(8);try{localStorage.setItem('ns',ns)}catch(e){}}
+  const srcs=[...new Set($('#sr').value.split(',').map(cleanSrc).filter(Boolean))].slice(0,6);
+  const room=$('#rm').value.replace(/[^a-z0-9]/gi,'');
+  let h='';
+  srcs.forEach((s,i)=>{
+    const u=baseUrl('link.html')+'?p='+p+'&s='+s+'&ns='+ns+(room?'&r='+room:'');
+    h+=`<div class="card"><h2>المصدر: ${s}</h2><div class="linkbox">${u}</div><button class="btn sec" data-u="${u}" type="button">نسخ الرابط</button><a class="btn sec" href="${u}" target="_blank" rel="noopener">جرّب الرابط</a><div class="qr" id="q${i}"></div></div>`;
+  });
+  const su=baseUrl('stats.html')+'?ns='+ns+'&src='+srcs.join(',');
+  h+=`<div class="card"><h2>الإحصائيات</h2><div class="linkbox">${su}</div><a class="btn" href="${su}">افتح الإحصائيات</a></div>`;
+  $('#out').innerHTML=h;
+  srcs.forEach((s,i)=>makeQR($('#q'+i),baseUrl('link.html')+'?p='+p+'&s='+s+'&ns='+ns+(room?'&r='+room:'')));
+  document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>copyText(b.dataset.u,b));
+};
+</script></div></body></html>
