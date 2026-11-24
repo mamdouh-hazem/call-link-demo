@@ -1,0 +1,78 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>صفحة المالك</title><link rel="stylesheet" href="style.css"></head><body><div class="wrap">
+<div id="nav"></div>
+<h1>صفحة المالك: استقبال المكالمات</h1>
+<p class="mut">سيب الصفحة مفتوحة على الجهاز. أي حد يفتح الرابط ويضغط «اتصل» هيرن هنا.</p>
+<div class="card" id="setup">
+<button class="btn" id="start" type="button">ابدأ استقبال المكالمات</button>
+<div class="mut">هيطلب إذن الميكروفون. الضغط ضروري عشان المتصفح يسمح بصوت الرنين.</div></div>
+<div class="card" id="share" hidden>
+<div class="status ok" id="state">جاهز: في انتظار مكالمة</div>
+<h2>رابط الاتصال للعميل</h2>
+<div class="linkbox" id="link"></div>
+<button class="btn sec" id="copy" type="button">نسخ الرابط</button>
+<div class="qr" id="qr"></div>
+<p class="mut">نفس الرابط يفضل ثابت على نفس المتصفح. لو مسحت بيانات المتصفح هيتغير.</p>
+</div>
+<div class="card" id="incoming" hidden>
+<div class="status" id="callinfo"></div>
+<div class="timer" id="timer" hidden>00:00</div>
+<button class="btn" id="answer" type="button">رد</button>
+<button class="btn sec" id="mute" type="button" hidden>كتم الميكروفون</button>
+<button class="btn bad" id="hang" type="button">رفض / إنهاء</button>
+</div>
+<audio id="remote" autoplay playsinline></audio>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script><script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script><script src="common.js"></script>
+<script>
+$('#nav').innerHTML=NAV;
+let room=null;try{room=localStorage.getItem('room')}catch(e){}
+if(!room){room=rand(8);try{localStorage.setItem('room',room)}catch(e){}}
+const PID='clnk-'+room;
+let peer,cur=null,stream=null,tmr=null,ring=null,ac=null;
+function setState(t,c){const e=$('#state');e.textContent=t;e.className='status '+(c||'')}
+function ringStart(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();let on=true;ring=setInterval(()=>{if(!on)return;const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.4)},1200)}catch(e){}}
+function ringStop(){clearInterval(ring);ring=null}
+function endCall(msg){
+  ringStop();clearInterval(tmr);
+  if(cur){try{cur.close()}catch(e){}cur=null}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  $('#incoming').hidden=true;$('#timer').hidden=true;$('#mute').hidden=true;$('#answer').hidden=false;
+  setState(msg||'جاهز: في انتظار مكالمة','ok');
+}
+$('#start').onclick=async()=>{
+  $('#start').disabled=true;
+  try{const t=await navigator.mediaDevices.getUserMedia({audio:true});t.getTracks().forEach(x=>x.stop())}
+  catch(e){$('#setup').insertAdjacentHTML('beforeend','<div class="status err">الميكروفون مش متاح أو الإذن مرفوض. فعّل الإذن من إعدادات المتصفح وجرّب تاني.</div>');$('#start').disabled=false;return}
+  try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
+  peer=new Peer(PID,{config:ICE});
+  peer.on('open',()=>{
+    $('#setup').hidden=true;$('#share').hidden=false;
+    const url=baseUrl('call.html')+'?r='+room;
+    $('#link').textContent=url;$('#copy').onclick=()=>copyText(url,$('#copy'));makeQR($('#qr'),url);
+    setState('جاهز: في انتظار مكالمة','ok');
+  });
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id'){setState('الرابط ده مفتوح على صفحة تانية. اقفلها وجرب تاني.','err');$('#share').hidden=false}
+    else setState('خطأ في الاتصال بالخادم: '+e.type,'err');
+  });
+  peer.on('disconnected',()=>{setState('انقطع الاتصال بالخادم، بحاول أرجّع...','err');try{peer.reconnect()}catch(e){}});
+  peer.on('call',c=>{
+    if(cur){c.close();return}
+    cur=c;const nm=(c.metadata&&c.metadata.name)||'زائر';
+    $('#incoming').hidden=false;$('#callinfo').textContent='مكالمة واردة من: '+nm;
+    $('#answer').hidden=false;ringStart();
+    c.on('close',()=>{if(cur===c)endCall('العميل أنهى المكالمة')});
+    c.on('error',()=>{if(cur===c)endCall('حصل خطأ في المكالمة')});
+  });
+};
+$('#answer').onclick=async()=>{
+  if(!cur)return;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){endCall('الميكروفون مش متاح');return}
+  ringStop();cur.answer(stream);
+  cur.on('stream',s=>{$('#remote').srcObject=s;$('#remote').play().catch(()=>{})});
+  $('#answer').hidden=true;$('#mute').hidden=false;$('#timer').hidden=false;$('#callinfo').textContent='المكالمة شغالة';
+  const t0=Date.now();clearInterval(tmr);tmr=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);$('#timer').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},500);
+  setState('في مكالمة','');
+};
+$('#mute').onclick=()=>{if(!stream)return;const t=stream.getAudioTracks()[0];t.enabled=!t.enabled;$('#mute').textContent=t.enabled?'كتم الميكروفون':'إلغاء الكتم'};
+$('#hang').onclick=()=>endCall('تم إنهاء المكالمة');
+</script></div></body></html>
